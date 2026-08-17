@@ -1,0 +1,26 @@
+run_otoweave.sh
+  s_5d851de048ab0e::t_3a23a3517f6324 2
+setup_mac.sh
+  s_5d851de048ab0e::t_7b3d3fee0e3ba4 2
+verify_setup_mac.sh
+  s_5d851de048ab0e::t_8768ccb1b3ec11 2
+distribution/docs/Macテスト手順書.md
+  s_5d851de048ab0e::t_4df66ecefd42a3 6-10
+  s_5d851de048ab0e::t_d9c0dbc31f8251 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "291a7e3a4c56100d4b1795063aeac015a6040c0d",
+  "prompts": {},
+  "sessions": {
+    "s_5d851de048ab0e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ace0b6a7-0a55-4e2e-99d6-7e6929485c11",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "your-username <you@example.com>"
+    }
+  }
+}
