@@ -8,6 +8,7 @@ patching otoweave_app.platform_support.IS_MACOS / IS_WINDOWS.
 from __future__ import annotations
 
 import queue as queue_module
+import signal
 import tempfile
 import time
 import unittest
@@ -274,7 +275,7 @@ class PosixProcessKillTests(unittest.TestCase):
             posix_process.new_session_popen_kwargs(), {"start_new_session": True}
         )
 
-    def test_kill_process_group_sends_sigterm_to_the_whole_group(self) -> None:
+    def test_kill_process_group_sends_sigkill_to_the_whole_group(self) -> None:
         process = MagicMock()
         process.poll.return_value = None
         process.pid = 4242
@@ -285,6 +286,7 @@ class PosixProcessKillTests(unittest.TestCase):
         getpgid.assert_called_once_with(4242)
         killpg.assert_called_once()
         self.assertEqual(killpg.call_args.args[0], 777)
+        self.assertEqual(killpg.call_args.args[1], signal.SIGKILL)
 
     def test_already_exited_process_is_left_alone(self) -> None:
         process = MagicMock()

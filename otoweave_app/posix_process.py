@@ -37,7 +37,11 @@ def kill_process_group(process: "subprocess.Popen") -> None:
         if process.poll() is not None:
             return
         pgid = os.getpgid(process.pid)
-        os.killpg(pgid, signal.SIGTERM)
+        # SIGKILL, not SIGTERM: every other kill path in this app
+        # (Windows TerminateProcess, AudioRecorder, TTS stop()) is an
+        # immediate forceful kill with no grace period, so a llama-server
+        # child that ignores SIGTERM must not be able to linger either.
+        os.killpg(pgid, signal.SIGKILL)
         return
     except Exception:
         pass

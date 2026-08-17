@@ -66,8 +66,8 @@ from otoweave_app.user_dictionary import (
     save_dictionary,
 )
 from otoweave_app.tts import (
-    WindowsTts,
     cleanup_stale_tts_files,
+    create_tts,
     tts_temp_dir,
 )
 from otoweave_app.windows_process import decode_windows_process_output
@@ -1563,7 +1563,7 @@ class OtoWeaveApp(ctk.CTk):
         )
         if tts_dir is not None:
             cleanup_stale_tts_files(tts_dir)
-        self._tts = WindowsTts(
+        self._tts = create_tts(
             on_finished=self._notify_tts_finished,
             on_error=self._notify_tts_error,
             temp_dir=tts_dir,
