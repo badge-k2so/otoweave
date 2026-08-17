@@ -10,7 +10,7 @@
 ![OtoWeave — ノート一覧・話者色分き文字起こし・AI要約とチューターの3ペイン画面](docs/images/otoweave-main.png)
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20%7C%20macOS%20Apple%20Silicon%20(beta)-lightgrey)](#対応os・必要スペック--supported-os--specs)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20%7C%20macOS%20(beta)-lightgrey)](#対応os・必要スペック--supported-os--specs)
 [![Offline](https://img.shields.io/badge/network-fully%20offline-brightgreen)](#プライバシーを重視した設計)
 [![GIGA端末](https://img.shields.io/badge/GIGA%E7%AB%AF%E6%9C%AB-%E5%AF%BE%E5%BF%9C-informational)](#対応os・必要スペック--supported-os--specs)
 [![Status](https://img.shields.io/badge/status-prototype%20%2F%20testing-yellow)](#開発状況)
@@ -24,7 +24,7 @@
 | ✅ | 文字起こし | 授業・会議・面談の音声を日本語・英語・日英混在でテキスト化 |
 | ✅ | 話者分離 | 誰が話したかを推定し、話者ごとに色分け表示（名前も変更可） |
 | ✅ | AI要約（β） | 用途別テンプレートでローカルAIが要約を生成。誤りの可能性を常に明示 |
-| ✅ | 読み上げ | 文字起こし・要約をWindows標準音声で読み上げ、タイムスタンプから聞き直し |
+| ✅ | 読み上げ | 文字起こし・要約をOS標準音声で読み上げ、タイムスタンプから聞き直し |
 | ✅ | 完全オフライン | 録音も文字起こしも要約も、すべて端末内で完結。外部送信の仕組みなし |
 
 ## しくみ / How it works
@@ -35,18 +35,22 @@
 
 | 項目 | 内容 |
 |---|---|
-| OS | Windows 10 / 11（64bit） |
+| Windows | Windows 10 / 11（64bit） |
+| macOS | テスト版（`mac-port-m2` ブランチ）。Apple Silicon（M1/M2/M3）およびIntel Macに対応 |
 | メモリ | 8GB以上推奨（文字起こし・チャット・読み上げ） |
 | メモリ（AI要約を使う場合） | 12GB以上推奨 |
 | メモリ（上位モデルでの要約） | 16GB以上 |
 | GPU | 不要（CPUのみで動作） |
-| macOS（Apple Silicon） | テスト版（`mac-port-m2` ブランチ）。M1/M2/M3・8GB RAM級を想定し検証中 |
 
 セットアップ時に空き容量とメモリを自動判定し、AI要約を「使う設定」にするか「使わない設定（モデルを削除して節約）」にするかを自動で決めます。判定結果は `setup_report.txt` に記録されます。
 
 ## 試し方 / How to try
 
-**かんたんセットアップ（推奨）** — スクリプトを1つ実行するだけです。AIモデル（メモリ8GB級のPCで約1.2GB、12GB以上で約5GB）は公式配布元から自動ダウンロードされます。
+AIモデル（メモリ8GB級のPCで約1.2GB、12GB以上で約5GB）は、セットアップ時に公式配布元から自動ダウンロードされます。
+
+### Windows
+
+**かんたんセットアップ（推奨）** — スクリプトを1つ実行するだけです。
 
 **gitを使わない場合（いちばん簡単）:**
 1. [ZIPをダウンロード](https://github.com/badge-k2so/otoweave/archive/refs/heads/main.zip)して展開する（gitのインストールは不要です）
@@ -62,9 +66,20 @@ powershell -ExecutionPolicy Bypass -File .\distribution\setup_easy.ps1
 
 初回はモデルのダウンロードに時間がかかります（回線速度に依存）。完了すると起動方法が表示されます。必要なもの: Windows 10/11 とインターネット接続だけ（curl・tar は Windows 標準搭載、Python はスクリプトが導入を案内します）。
 
+### macOS（テスト版）
+
+Apple Silicon（M1/M2/M3）とIntel Macの両方に対応しています。Intel MacではAI処理がCPUのみとなるため、Apple Siliconより時間がかかる場合があります。
+
+```bash
+git clone --branch mac-port-m2 https://github.com/badge-k2so/otoweave.git
+cd otoweave
+./setup_mac.sh
+```
+
+セットアップ後は `OtoWeaveを起動.command` をダブルクリックして起動できます。詳しい準備、動作確認、トラブル対応は [Macテスト手順書](distribution/docs/Macテスト手順書.md) を参照してください。
+
 その他の入手方法:
 - **テスター向け配布パッケージ**: モデル・依存関係を同梱したオフラインセットアップ版（インターネット不要）。テスト参加のご希望は [Issues](https://github.com/badge-k2so/otoweave/issues) へ
-- **macOS（テスト版）**: `mac-port-m2` ブランチ + [Macテスト手順書](https://github.com/badge-k2so/otoweave/blob/mac-port-m2/distribution/docs/Macテスト手順書.md)
 
 詳しい手順・トラブル対応は以下のドキュメントにまとまっています。
 
@@ -141,7 +156,7 @@ OtoWeave は、ディスレクシア（読み書き困難）のある人が、�
 - SpeechBrain（言語判定）
 - pyannote segmentation / 3D-Speaker（話者分離）
 - Qwen GGUF / llama-cpp-python（要約・チャット）
-- Windows System.Speech（読み上げ）
+- Windows System.Speech / macOS `say`（読み上げ）
 
 #### 開発状況
 
@@ -207,7 +222,11 @@ Before recording, check the rules that apply in your school, workplace, or regio
 - SpeechBrain for language identification
 - pyannote segmentation / 3D-Speaker for speaker diarization
 - Qwen GGUF / llama-cpp-python for summaries and chat
-- Windows System.Speech for text-to-speech
+- Windows System.Speech / macOS `say` for text-to-speech
+
+### macOS beta
+
+The `mac-port-m2` branch supports both Apple Silicon (M1/M2/M3) and Intel Macs. Clone that branch, run `./setup_mac.sh`, then launch the app by double-clicking `OtoWeaveを起動.command`. See the [Mac testing guide](distribution/docs/Macテスト手順書.md) for setup, verification, and troubleshooting details.
 
 ### Project status
 
