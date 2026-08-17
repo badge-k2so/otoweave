@@ -118,6 +118,10 @@ else
   echo ""
 fi
 
+if [ -f "./OtoWeaveを起動.command" ]; then
+  chmod +x "./OtoWeaveを起動.command" || true
+fi
+
 echo ""
 echo "==> セットアップの検証を実行しています (verify_setup_mac.sh)"
 if [ -f "./verify_setup_mac.sh" ]; then
@@ -129,7 +133,9 @@ fi
 echo ""
 echo "=================================================="
 echo "セットアップスクリプトが完了しました。"
-echo "起動するには:  ./run_otoweave.sh"
+echo "起動するには:"
+echo "  Finderで「OtoWeaveを起動.command」をダブルクリック"
+echo "  （またはターミナルで ./run_otoweave.sh）"
 echo ""
 echo "注意: モデルファイル（AIの本体データ）は Git に含まれていません。"
 echo "      開発者から受け取った models/ と hf-cache/ をこのフォルダに"
