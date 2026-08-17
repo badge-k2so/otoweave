@@ -1,0 +1,26 @@
+tests/test_mac_port_process_supervision.py
+  s_5d851de048ab0e::t_215d1dfc0de07e 278
+  s_5d851de048ab0e::t_2f1632ad2bbc4b 289
+  s_5d851de048ab0e::t_758c65cd5305d7 11
+otoweave_app/posix_process.py
+  s_5d851de048ab0e::t_01d6df64353bf5 40-44
+otoweave_app/otoweave_app.py
+  s_5d851de048ab0e::t_8cf546166b8a64 1566
+  s_5d851de048ab0e::t_5efa3d0d2b932e 70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "c2180514625081807cdf1ae14ee60330f2d0a8e3",
+  "prompts": {},
+  "sessions": {
+    "s_5d851de048ab0e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ace0b6a7-0a55-4e2e-99d6-7e6929485c11",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "your-username <you@example.com>"
+    }
+  }
+}
