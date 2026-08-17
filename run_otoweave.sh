@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# OtoWeave launcher for macOS (Apple Silicon).
+# OtoWeave launcher for macOS (Apple Silicon / Intel).
 #
 # Usage:
 #   ./run_otoweave.sh                 # normal launch

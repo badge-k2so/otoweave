@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# OtoWeave (macOS / Apple Silicon) セットアップ検証。
+# OtoWeave (macOS / Apple Silicon・Intel) セットアップ検証。
 #
 # setup_mac.sh の最後に自動実行されます。単独でも実行できます:
 #   ./verify_setup_mac.sh

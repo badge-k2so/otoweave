@@ -1,7 +1,12 @@
-# OtoWeave Mac (Apple Silicon) テスト手順書
+# OtoWeave Mac (Apple Silicon / Intel) テスト手順書
 
 対象機種の目安: MacBook（M1/M2/M3など Apple Silicon搭載）、メモリ8GB以上。
 所要時間の目安: セットアップ20〜30分＋テスト45〜60分。
+
+Intel Mac（Core i5/i7など）でも動作します。`setup_mac.sh` が自動で判別し、
+Apple SiliconのようなMetal（GPU）高速化なしでCPUのみで動作します。
+文字起こし・読み上げは同じ速度で使えますが、AI要約とAIチューターの応答は
+Apple Siliconより遅くなります。
 
 > これは **検証中のMac版** です。Windows版に比べて実機での確認がまだ
 > 少ないため、うまくいかない操作があっても試用者の責任ではありません。

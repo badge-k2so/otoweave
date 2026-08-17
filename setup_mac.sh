@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# OtoWeave — Apple Silicon (macOS) 初回セットアップ
+# OtoWeave — macOS (Apple Silicon / Intel) 初回セットアップ
 #
 # Homebrew で python@3.12 / ffmpeg を用意し、.venv を作成して依存関係を
 # インストールします。llama-cpp-python は Metal (GPU) を有効にしてソース
