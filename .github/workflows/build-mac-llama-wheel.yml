@@ -10,6 +10,11 @@
 #
 # 出来上がったファイルは Releases の "mac-wheels-v1" に置かれ、
 # setup_mac.sh が自動で見つけて使います。
+#
+# 設計メモ: Apple Silicon 用と Intel 用は互いに待たない。以前は共通の
+# publish ジョブが両方の完了を待っていたため、Intel 側のランナーが
+# 割り当てられないだけで、完成している arm64 版まで公開されなかった。
+# 各ジョブが自分の分だけを Release に上げる形にしてある。
 name: Build macOS llama-cpp-python wheels
 
 on:
@@ -30,13 +35,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-14      # Apple Silicon (arm64)
+          # ラベルは actions/runner-images の一覧に合わせること。
+          # macos-13（Intel）は廃止済み、macos-14 は deprecated。
+          - runner: macos-15          # Apple Silicon (arm64)
             arch: arm64
             cmake_args: "-DGGML_METAL=on -DGGML_METAL_EMBED_LIBRARY=ON"
-          - runner: macos-13      # Intel (x86_64)
+          - runner: macos-15-intel    # Intel (x86_64)
             arch: x86_64
             cmake_args: "-DGGML_METAL=off"
     runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: write
     steps:
       - uses: actions/setup-python@v5
         with:
@@ -65,35 +74,38 @@ jobs:
           name: wheel-${{ matrix.arch }}
           path: dist/*.whl
 
-  publish:
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: wheels
-          merge-multiple: true
-
-      - name: Upload to the release
+      - name: Publish this architecture's wheel
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ inputs.tag }}
+          ARCH: ${{ matrix.arch }}
         run: |
           set -euo pipefail
-          ls -lh wheels
+          WHEEL="$(ls dist/llama_cpp_python-*.whl | head -1)"
+          NAME="$(basename "$WHEEL")"
+          echo "公開するファイル: $NAME"
+
+          # もう一方のジョブと同時に作ろうとして負けても問題ないので、
+          # 失敗は握りつぶして view で存在を確かめ直す。
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" \
               --title "macOS 用 事前ビルド済みファイル" \
-              --notes "setup_mac.sh がここから llama-cpp-python を取得します。手動で開く必要はありません。"
+              --notes "setup_mac.sh がここから llama-cpp-python を取得します。手動で開く必要はありません。" \
+              || true
           fi
-          # 版を上げたとき、古い wheel が同じ release に残っていると
-          # setup_mac.sh がどちらを拾うか決まらない。先に消しておく。
+          gh release view "$TAG" >/dev/null
+
+          # 版を上げたとき、同じ CPU 向けの古い wheel が残っていると
+          # setup_mac.sh がどちらを拾うか決まらない。自分と同じ CPU の
+          # 古いものだけ消す（もう一方の CPU 用には触らない）。
           for OLD in $(gh release view "$TAG" --json assets \
-                        --jq '.assets[].name | select(endswith(".whl"))'); do
-            echo "古い wheel を削除: $OLD"
-            gh release delete-asset "$TAG" "$OLD" --yes
+                        --jq ".assets[].name | select(endswith(\"_${ARCH}.whl\"))"); do
+            if [ "$OLD" != "$NAME" ]; then
+              echo "古い wheel を削除: $OLD"
+              gh release delete-asset "$TAG" "$OLD" --yes
+            fi
           done
-          gh release upload "$TAG" wheels/*.whl
+
+          gh release upload "$TAG" "$WHEEL" --clobber
+          echo "完了: $NAME を $TAG に公開しました"
