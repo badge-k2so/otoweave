@@ -118,6 +118,15 @@ else
   echo ""
 fi
 
+echo ""
+echo "==> AIモデルをダウンロードしています（初回のみ・回線により30分以上かかることがあります）"
+if [ -f "./distribution/download_models_mac.sh" ]; then
+  bash "./distribution/download_models_mac.sh" || fail "AIモデルのダウンロードに失敗しました。
+ネット接続を確認し、もう一度 ./setup_mac.sh を実行してください（続きから再開します）。"
+else
+  echo "   distribution/download_models_mac.sh が見つかりませんでした（スキップします）。" >&2
+fi
+
 if [ -f "./OtoWeaveを起動.command" ]; then
   chmod +x "./OtoWeaveを起動.command" || true
 fi
@@ -136,8 +145,4 @@ echo "セットアップスクリプトが完了しました。"
 echo "起動するには:"
 echo "  Finderで「OtoWeaveを起動.command」をダブルクリック"
 echo "  （またはターミナルで ./run_otoweave.sh）"
-echo ""
-echo "注意: モデルファイル（AIの本体データ）は Git に含まれていません。"
-echo "      開発者から受け取った models/ と hf-cache/ をこのフォルダに"
-echo "      配置してから起動してください（詳しくは配布時の手順書を参照）。"
 echo "=================================================="

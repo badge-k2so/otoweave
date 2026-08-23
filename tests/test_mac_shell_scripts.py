@@ -19,6 +19,8 @@ MAC_SHELL_SCRIPTS = (
     "run_otoweave.sh",
     "verify_setup_mac.sh",
     "OtoWeaveを起動.command",
+    "distribution/download_models_mac.sh",
+    "scripts/build_mac_tester_zip.sh",
 )
 
 
@@ -72,6 +74,62 @@ class MacShellScriptSyntaxTests(unittest.TestCase):
                     "100755",
                     f"{name} に実行権限がありません（git update-index --chmod=+x が必要です）",
                 )
+
+
+class MacModelDownloadParityTests(unittest.TestCase):
+    """download_models_mac.sh must pull the same model files, from the same
+    sources, as the Windows setup_easy.ps1 -- otherwise the two platforms
+    quietly drift apart and a Mac tester ends up on different weights."""
+
+    def setUp(self) -> None:
+        self.mac = (REPO_ROOT / "distribution" / "download_models_mac.sh").read_text(
+            encoding="utf-8"
+        )
+        self.win = (REPO_ROOT / "distribution" / "setup_easy.ps1").read_text(
+            encoding="utf-8"
+        )
+
+    def test_every_windows_model_url_is_covered_on_mac(self) -> None:
+        import re
+
+        # ffmpeg is the one deliberate difference: Windows downloads a build,
+        # macOS gets it from Homebrew in setup_mac.sh instead.
+        skip = ("gyan.dev",)
+        urls = re.findall(r"https://[^\s'\"]+", self.win)
+        model_urls = {
+            u
+            for u in urls
+            if u.endswith((".onnx", ".gguf", ".txt", ".zip", ".tar.bz2"))
+            and not any(s in u for s in skip)
+        }
+        self.assertTrue(model_urls, "Windows側からモデルURLを抽出できませんでした")
+        for url in sorted(model_urls):
+            with self.subTest(url=url):
+                self.assertIn(
+                    url,
+                    self.mac,
+                    f"{url} が download_models_mac.sh に含まれていません",
+                )
+
+    def test_reazonspeech_repo_matches(self) -> None:
+        for text in (self.mac, self.win):
+            self.assertIn("reazon-research/reazonspeech-k2-v2", text)
+
+    def test_four_b_model_is_gated_on_ram(self) -> None:
+        """The 4B summary model must stay behind a RAM check on Mac too --
+        an 8GB MacBook Air should never spend 2.6GB on a model it cannot run."""
+        self.assertIn("hw.memsize", self.mac)
+        self.assertIn("DOWNLOAD_4B", self.mac)
+        four_b_line = next(
+            line for line in self.mac.splitlines() if "Qwen3.5-4B-GGUF" in line
+        )
+        four_b_index = self.mac.index(four_b_line)
+        gate_index = self.mac.index('if [ "$DOWNLOAD_4B" = "1" ]')
+        self.assertLess(
+            gate_index,
+            four_b_index,
+            "4Bモデルの取得がメモリ判定の外に出ています",
+        )
 
 
 if __name__ == "__main__":
