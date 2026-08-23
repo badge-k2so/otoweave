@@ -68,9 +68,14 @@ download() {
   mkdir -p "$(dirname "$dest")"
   info "取得中: $label"
   if ! curl -L --fail --retry 5 --retry-delay 5 -C - -o "$dest.part" "$url"; then
-    rm -f "$dest.part"
-    echo "[失敗] $label のダウンロードに失敗しました（入手元: $url）" >&2
-    return 1
+    # 既に全部取れている場合、サーバが「続きはもう無い」と返すため curl は
+    # 失敗扱いになる。中身が揃っていればそのまま採用する。
+    if ! valid_file "$dest.part" "$min"; then
+      # 途中まで取れた分は消さない。次回の curl -C - が続きから取得する。
+      echo "[失敗] $label のダウンロードが最後まで終わりませんでした（入手元: ${url}）" >&2
+      echo "       もう一度実行すると、途中から再開します。" >&2
+      return 1
+    fi
   fi
   if ! valid_file "$dest.part" "$min"; then
     echo "[失敗] $label のダウンロードが不完全です（$(file_size "$dest.part") バイト / 想定 $min バイト以上）" >&2
