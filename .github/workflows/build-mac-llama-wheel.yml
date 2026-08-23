@@ -1,0 +1,99 @@
+# AI要約・チャット用エンジン（llama-cpp-python）の Mac 向け事前ビルド
+#
+# これを一度実行しておくと、テスターのMacでは「組み立て」ではなく
+# 出来上がったファイルの取り込みだけで済むため、Xcode が不要になり、
+# セットアップも数分短くなります。
+#
+# 使い方:
+#   GitHub の Actions タブ → このワークフロー → Run workflow
+#   （llama-cpp-python の版を上げたいときは version を書き換えて再実行）
+#
+# 出来上がったファイルは Releases の "mac-wheels-v1" に置かれ、
+# setup_mac.sh が自動で見つけて使います。
+name: Build macOS llama-cpp-python wheels
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "llama-cpp-python のバージョン"
+        required: true
+        default: "0.3.35"
+      tag:
+        description: "配置先の Release タグ（setup_mac.sh の WHEEL_TAG と合わせる）"
+        required: true
+        default: "mac-wheels-v1"
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14      # Apple Silicon (arm64)
+            arch: arm64
+            cmake_args: "-DGGML_METAL=on -DGGML_METAL_EMBED_LIBRARY=ON"
+          - runner: macos-13      # Intel (x86_64)
+            arch: x86_64
+            cmake_args: "-DGGML_METAL=off"
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build wheel
+        env:
+          CMAKE_ARGS: ${{ matrix.cmake_args }}
+          # 古い macOS でも動く形にそろえる（テスターの機種を問わないように）
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip wheel
+          python -m pip wheel "llama-cpp-python==${{ inputs.version }}" \
+            --no-binary llama-cpp-python --no-deps -w dist
+          ls -lh dist
+
+      - name: Check the wheel actually imports
+        run: |
+          set -euo pipefail
+          python -m pip install dist/llama_cpp_python-*.whl
+          python -c "import llama_cpp; print(llama_cpp.__version__)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.arch }}
+          path: dist/*.whl
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: wheels
+          merge-multiple: true
+
+      - name: Upload to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          ls -lh wheels
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title "macOS 用 事前ビルド済みファイル" \
+              --notes "setup_mac.sh がここから llama-cpp-python を取得します。手動で開く必要はありません。"
+          fi
+          # 版を上げたとき、古い wheel が同じ release に残っていると
+          # setup_mac.sh がどちらを拾うか決まらない。先に消しておく。
+          for OLD in $(gh release view "$TAG" --json assets \
+                        --jq '.assets[].name | select(endswith(".whl"))'); do
+            echo "古い wheel を削除: $OLD"
+            gh release delete-asset "$TAG" "$OLD" --yes
+          done
+          gh release upload "$TAG" wheels/*.whl

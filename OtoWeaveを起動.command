@@ -23,14 +23,20 @@ fail() {
 
 if [ ! -x ".venv/bin/python" ]; then
   fail "初回セットアップがまだです。
-先に「setup_mac.sh」をダブルクリックするか、ターミナルで次を実行してください。
-
-  ./setup_mac.sh"
+先に、同じフォルダの「はじめに実行.command」を右クリック →「開く」で実行してください。"
 fi
 
 if [ ! -f "otoweave_app/main.py" ]; then
   fail "アプリ本体のファイルが見つかりません（otoweave_app フォルダ）。
 OtoWeaveのフォルダ一式を、このフォルダとまとめて置いてから開き直してください。"
+fi
+
+# 画面表示の部品（tkinter）が無いまま起動すると、英語のトレースバックだけ出て
+# 終わってしまう。先に確かめて、直し方を日本語で出す。
+if ! .venv/bin/python -c "import tkinter" >/dev/null 2>&1; then
+  fail "画面表示に必要な部品（tkinter）が入っていません。
+同じフォルダの「はじめに実行.command」をもう一度開いてください
+（済んでいるところはやり直しません）。"
 fi
 
 export HF_HOME="$ROOT/hf-cache"

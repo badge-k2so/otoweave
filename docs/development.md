@@ -234,10 +234,17 @@ so treat timings and stability as unconfirmed until a tester reports back.
 Setup (one time):
 
 ```bash
-./setup_mac.sh          # Homebrew python@3.12/ffmpeg, venv, deps,
-                         # Metal-enabled llama-cpp-python, ReazonSpeech K2
+./setup_mac.sh          # self-contained runtime + venv + deps + models
 ./verify_setup_mac.sh   # re-run any time to check what's missing
 ```
+
+`setup_mac.sh` needs no Homebrew, no sudo and no Xcode: it downloads a
+standalone CPython 3.12 (tkinter/Tcl-Tk included) into `runtime/python/`
+and a static ffmpeg into `engines/ffmpeg/`, both SHA256-pinned in
+`distribution/setup_runtime_mac.sh`, then builds `.venv` from that runtime.
+Testers get the same thing by right-clicking `はじめに実行.command` →
+Open, which keeps the window open and tees the output to
+`setup_log_mac.txt`.
 
 Launch:
 
@@ -247,9 +254,12 @@ Launch:
 
 Differences from Windows: recording/playback uses `sounddevice`/PortAudio
 instead of PyAudioWPatch; text-to-speech uses `say -v Kyoko` instead of the
-Windows System.Speech voice; `llama-cpp-python` is built from source with
-`CMAKE_ARGS="-DGGML_METAL=on"` for GPU-accelerated summaries/chat on Apple
-Silicon. `reazonspeech-k2-asr` is not published on PyPI, so `setup_mac.sh`
+Windows System.Speech voice; `llama-cpp-python` is installed from a wheel
+prebuilt with `CMAKE_ARGS="-DGGML_METAL=on"` by
+`.github/workflows/build-mac-llama-wheel.yml` (run it manually from the
+Actions tab; it publishes to the `mac-wheels-v1` release that `setup_mac.sh`
+reads). Without that release the setup falls back to building from source,
+and without Xcode it warns and continues with summaries/chat disabled. `reazonspeech-k2-asr` is not published on PyPI, so `setup_mac.sh`
 installs it straight from the GitHub subdirectory
 (`reazon-research/ReazonSpeech`, `pkg/k2-asr`); if that install fails,
 Japanese live ASR may be unavailable while English/summary/chat/TTS still

@@ -76,7 +76,9 @@ cd otoweave
 ./setup_mac.sh
 ```
 
-セットアップ後は `OtoWeaveを起動.command` をダブルクリックして起動できます。詳しい準備、動作確認、トラブル対応は [Macテスト手順書](distribution/docs/Macテスト手順書.md) を参照してください。
+Homebrew・管理者パスワード・Xcode は不要です。専用のPython 3.12 と ffmpeg をフォルダ内（`runtime/`, `engines/`）に用意し、そこから環境を作ります。
+
+セットアップ後は `OtoWeaveを起動.command` をダブルクリックして起動できます。テスターに配る場合は `./scripts/build_mac_tester_zip.sh` で作ったzipを渡し、中の `はじめに実行.command` を右クリック →「開く」してもらうだけです（ターミナル操作なし）。詳しい準備、動作確認、トラブル対応は [Macテスト手順書](distribution/docs/Macテスト手順書.md) を参照してください。
 
 その他の入手方法:
 - **テスター向け配布パッケージ**: モデル・依存関係を同梱したオフラインセットアップ版（インターネット不要）。テスト参加のご希望は [Issues](https://github.com/badge-k2so/otoweave/issues) へ
@@ -226,7 +228,7 @@ Before recording, check the rules that apply in your school, workplace, or regio
 
 ### macOS beta
 
-The `mac-port-m2` branch supports both Apple Silicon (M1/M2/M3) and Intel Macs. Clone that branch, run `./setup_mac.sh`, then launch the app by double-clicking `OtoWeaveを起動.command`. See the [Mac testing guide](distribution/docs/Macテスト手順書.md) for setup, verification, and troubleshooting details.
+The `mac-port-m2` branch supports both Apple Silicon (M1/M2/M3) and Intel Macs. Clone that branch, run `./setup_mac.sh` (no Homebrew, sudo or Xcode needed — it installs a standalone Python and ffmpeg under the project folder), then launch the app by double-clicking `OtoWeaveを起動.command`. See the [Mac testing guide](distribution/docs/Macテスト手順書.md) for setup, verification, and troubleshooting details.
 
 ### Project status
 

@@ -59,6 +59,22 @@ else
   check "Python $PY_VER" 1 "3.12 が必要です。./setup_mac.sh を実行してください"
 fi
 
+# --- 専用Python / 画面表示 (tkinter) -----------------------------------------
+# .venv は runtime/python（同梱の専用Python）から作られている必要がある。
+# 古い版の setup_mac.sh が作った Homebrew 由来の .venv だと tkinter が無い。
+BASE_PREFIX="$("$PY" -c 'import sys; print(sys.base_prefix)' 2>/dev/null || echo "")"
+if [ "$BASE_PREFIX" = "$ROOT/runtime/python" ]; then
+  check "専用Python（フォルダ内で完結）" 0
+else
+  check "専用Python（フォルダ内で完結）" 1 "別のPythonから作られた環境です（${BASE_PREFIX:-不明}）。「はじめに実行.command」をもう一度開くと作り直します"
+fi
+
+if "$PY" -c "import tkinter" >/dev/null 2>&1; then
+  check "ライブラリ tkinter（画面表示）" 0
+else
+  check "ライブラリ tkinter（画面表示）" 1 "「はじめに実行.command」をもう一度開いてください（済んだところはやり直しません）"
+fi
+
 # --- ライブラリ -------------------------------------------------------------
 MODULES=(
   "customtkinter:UI"
@@ -73,17 +89,16 @@ MODULES=(
   "sherpa_onnx:文字起こし・話者分離エンジン"
   "onnxruntime:言語判定エンジン"
   "huggingface_hub:モデル読み込み"
-  "llama_cpp:AI要約・チャット"
   "reazonspeech.k2.asr:日本語文字起こし"
 )
 for entry in "${MODULES[@]}"; do
   name="${entry%%:*}"
   purpose="${entry##*:}"
   if "$PY" -c "import $name" >/dev/null 2>&1; then
-    check "ライブラリ $name（$purpose）" 0
+    check "ライブラリ ${name}（${purpose}）" 0
   else
     err="$("$PY" -c "import $name" 2>&1 | tail -1)"
-    check "ライブラリ $name（$purpose）" 1 "${err:0:100}"
+    check "ライブラリ ${name}（${purpose}）" 1 "${err:0:100}"
   fi
 done
 
@@ -106,7 +121,7 @@ for entry in "${MODEL_FILES[@]}"; do
   if [ -f "$ROOT/$relpath" ]; then
     check "ファイル $label" 0
   else
-    check "ファイル $label" 1 "$relpath が見つかりません（開発者から受け取ったファイルを models/ に配置してください）"
+    check "ファイル $label" 1 "${relpath} が見つかりません（「はじめに実行.command」をもう一度開くと、足りない分だけ取り直します）"
   fi
 done
 
@@ -118,7 +133,7 @@ if [ -f "$ROOT/models/Qwen3.5-4B-Q4_K_M.gguf" ]; then
   log "[OK] ファイル AI要約 (Qwen3.5-4B) : あり"
   OK_COUNT=$((OK_COUNT + 1))
 elif [ "${RAM_BYTES_CHECK:-0}" -gt "$MAC_4B_MIN_RAM" ] 2>/dev/null; then
-  log "[NG] ファイル AI要約 (Qwen3.5-4B) : なし（このMacでは要約が使えるはずです。./setup_mac.sh をもう一度実行して取得してください）"
+  log "[NG] ファイル AI要約 (Qwen3.5-4B) : なし（このMacでは要約が使えるはずです。「はじめに実行.command」をもう一度開いて取得してください）"
   NG_COUNT=$((NG_COUNT + 1))
 else
   log "[--] ファイル AI要約 (Qwen3.5-4B) ※任意 : なし（このMacはメモリが少ないため正常です。チャットは2Bで動作します）"
@@ -143,14 +158,14 @@ HF_DETAIL="$(printf '%s\n' "$HF_CHECK_OUT" | tail -1)"
 if [ "$HF_STATUS" = "OK" ]; then
   check "日本語ASR (ReazonSpeech K2, hf-cache)" 0
 else
-  check "日本語ASR (ReazonSpeech K2, hf-cache)" 1 "$HF_DETAIL （開発者から受け取ったキャッシュを hf-cache/ に配置してください）"
+  check "日本語ASR (ReazonSpeech K2, hf-cache)" 1 "$HF_DETAIL （「はじめに実行.command」をもう一度開くと取り直します）"
 fi
 
 # --- ffmpeg -----------------------------------------------------------------
 if command -v ffmpeg >/dev/null 2>&1 || [ -x "$ROOT/engines/ffmpeg/ffmpeg" ]; then
   check "ffmpeg" 0
 else
-  check "ffmpeg" 1 "'brew install ffmpeg' を実行するか、engines/ffmpeg/ffmpeg を配置してください"
+  check "ffmpeg" 1 "「はじめに実行.command」をもう一度開いてください（engines/ffmpeg/ffmpeg を取り直します）"
 fi
 
 # --- 読み上げ (say -v Kyoko) -------------------------------------------------
@@ -186,16 +201,17 @@ else
   check "マイク入力" 1 "${MIC_STATUS#ERROR:}"
 fi
 
-# --- llama-cpp-python の Metal ビルド確認（参考情報） -------------------------
+# --- AI要約・チャット用エンジン（任意項目） -----------------------------------
+# 無くても録音・文字起こし・読み上げは使えるため、[NG] ではなく [--] で扱う。
 LLAMA_DIR="$("$PY" -c 'import llama_cpp, os; print(os.path.dirname(llama_cpp.__file__))' 2>/dev/null || true)"
 if [ -n "$LLAMA_DIR" ] && find "$LLAMA_DIR" -iname '*metal*' 2>/dev/null | grep -q .; then
-  log "[OK] llama-cpp-python: Metal 有効でビルドされています（AI要約・チャットがGPUで高速化されます）"
+  log "[OK] AI要約・チャット用エンジン（GPU/Metal 有効）"
   OK_COUNT=$((OK_COUNT + 1))
 elif [ -n "$LLAMA_DIR" ]; then
-  log "[NG] llama-cpp-python: Metal 対応ファイルが見つかりません（CPUのみで動作 — 要約が遅くなります）。./setup_mac.sh を再実行してください"
-  NG_COUNT=$((NG_COUNT + 1))
+  log "[OK] AI要約・チャット用エンジン（CPUのみ — 要約に時間がかかります）"
+  OK_COUNT=$((OK_COUNT + 1))
 else
-  log "[--] llama-cpp-python: 未インストールのため確認できません（上のライブラリ一覧を参照）"
+  log "[--] AI要約・チャット用エンジン ※任意 : 未導入（録音・文字起こし・読み上げは使えます。要約とチャットを使いたい場合は開発者に連絡してください）"
 fi
 
 # --- ディスク空き容量 ---------------------------------------------------------
@@ -214,9 +230,9 @@ fi
 
 log "--------------------------------------------------------"
 if [ "$NG_COUNT" -eq 0 ]; then
-  SUMMARY="すべてOKです。「./run_otoweave.sh」で起動できます。"
+  SUMMARY="すべてOKです。「OtoWeaveを起動.command」をダブルクリックすると始められます。"
 else
-  SUMMARY="NG ${NG_COUNT}件: 上の [NG] を解決してから起動してください。"
+  SUMMARY="NG ${NG_COUNT}件: 上の [NG] の行に書かれた対処をしてから起動してください。"
 fi
 log "$SUMMARY"
 

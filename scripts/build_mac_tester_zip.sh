@@ -33,6 +33,22 @@ command -v zip >/dev/null 2>&1 || { echo "[エラー] zip が見つかりませ�
 git rev-parse --verify "$REF" >/dev/null 2>&1 \
   || { echo "[エラー] '$REF' というブランチ/タグが見つかりません。" >&2; exit 1; }
 
+# git の内容から作るため、コミットしていない変更は zip に入らない。
+# 直したつもりの修正が入っていないzipをテスターに送る事故を防ぐ。
+if [ "$REF" = "HEAD" ] && [ -n "$(git status --porcelain)" ]; then
+  echo ""
+  echo "[注意] コミットしていない変更・追加ファイルがあります。" >&2
+  echo "       zip には入りません（git にコミット済みの内容だけが入ります）。" >&2
+  git status --short >&2
+  echo "" >&2
+  printf "このまま作りますか？ [y/N]: " >&2
+  read -r ANSWER
+  case "$ANSWER" in
+    [yY]*) ;;
+    *) echo "中止しました。コミットしてから実行してください。" >&2; exit 1 ;;
+  esac
+fi
+
 echo "==> $REF の内容を取り出しています"
 rm -rf "$STAGE" "$ZIP_PATH"
 mkdir -p "$STAGE"
@@ -48,7 +64,8 @@ rm -rf \
   "$STAGE/prompts" \
   "$STAGE/MAC_PORT_PLAN.md" \
   "$STAGE/PROJECT_RECORD.md" \
-  "$STAGE/docs/images"
+  "$STAGE/docs/images" \
+  "$STAGE/.github"
 # Windows専用のセットアップ資材（Mac版テスターの誤操作を防ぐ）
 rm -f \
   "$STAGE/setup_otoweave.ps1" \
@@ -68,9 +85,11 @@ echo "==> 実行権限を付け直しています"
 # zip は実行ビットを保持するが、git archive 経由でも確実にしておく。
 # 指定refに未導入のファイルがあっても止めない（古いブランチからも作れるように）。
 for f in \
+  "はじめに実行.command" \
   "setup_mac.sh" \
   "verify_setup_mac.sh" \
   "run_otoweave.sh" \
+  "distribution/setup_runtime_mac.sh" \
   "distribution/download_models_mac.sh" \
   "OtoWeaveを起動.command"
 do
@@ -97,6 +116,11 @@ echo "完成しました:"
 echo "  $ZIP_PATH"
 echo "  サイズ: $(du -h "$ZIP_PATH" | cut -f1)"
 echo ""
-echo "AIモデル（約5.3GB）はこのzipには入っていません。"
-echo "テスターのMacで ./setup_mac.sh を実行したときに自動で取得されます。"
+echo "AIモデル（約5.3GB）と専用Python・ffmpegはこのzipには入っていません。"
+echo "テスターが「はじめに実行.command」を開いたときに自動で取得されます。"
+echo ""
+echo "テスターに伝えること（これだけ）:"
+echo "  1. zip をダブルクリックで展開する"
+echo "  2. 中の「はじめに実行.command」を右クリック →「開く」"
+echo "  3. 終わったら「OtoWeaveを起動.command」をダブルクリック"
 echo "=================================================="
