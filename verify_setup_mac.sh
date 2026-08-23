@@ -203,16 +203,24 @@ fi
 
 # --- AI要約・チャット用エンジン（任意項目） -----------------------------------
 # 無くても録音・文字起こし・読み上げは使えるため、[NG] ではなく [--] で扱う。
-LLAMA_DIR="$("$PY" -c 'import llama_cpp, os; print(os.path.dirname(llama_cpp.__file__))' 2>/dev/null || true)"
-if [ -n "$LLAMA_DIR" ] && find "$LLAMA_DIR" -iname '*metal*' 2>/dev/null | grep -q .; then
-  log "[OK] AI要約・チャット用エンジン（GPU/Metal 有効）"
-  OK_COUNT=$((OK_COUNT + 1))
-elif [ -n "$LLAMA_DIR" ]; then
-  log "[OK] AI要約・チャット用エンジン（CPUのみ — 要約に時間がかかります）"
-  OK_COUNT=$((OK_COUNT + 1))
-else
-  log "[--] AI要約・チャット用エンジン ※任意 : 未導入（録音・文字起こし・読み上げは使えます。要約とチャットを使いたい場合は開発者に連絡してください）"
-fi
+#
+# GPUが使えるかは llama.cpp 本体に聞く。ファイル名で判定していた頃は、
+# Metal を無効にしてビルドした Intel 版にも libggml-metal.dylib が同梱される
+# ため「GPU有効」と誤表示していた。
+LLAMA_GPU="$("$PY" -c 'import llama_cpp; print("yes" if llama_cpp.llama_supports_gpu_offload() else "no")' 2>/dev/null || echo "")"
+case "$LLAMA_GPU" in
+  yes)
+    log "[OK] AI要約・チャット用エンジン（GPUで高速化されます）"
+    OK_COUNT=$((OK_COUNT + 1))
+    ;;
+  no)
+    log "[OK] AI要約・チャット用エンジン（CPUのみ — 要約に時間がかかります）"
+    OK_COUNT=$((OK_COUNT + 1))
+    ;;
+  *)
+    log "[--] AI要約・チャット用エンジン ※任意 : 未導入（録音・文字起こし・読み上げは使えます。要約とチャットを使いたい場合は開発者に連絡してください）"
+    ;;
+esac
 
 # --- ディスク空き容量 ---------------------------------------------------------
 FREE_GB="$(df -g "$ROOT" 2>/dev/null | tail -1 | awk '{print $4}')"

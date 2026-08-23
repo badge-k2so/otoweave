@@ -159,7 +159,7 @@ LLAMA_WHEEL_URL="$(
     "https://api.github.com/repos/${WHEEL_REPO}/releases/tags/${WHEEL_TAG}" 2>/dev/null \
     | grep -o '"browser_download_url": *"[^"]*"' \
     | sed 's/.*"browser_download_url": *"//; s/"$//' \
-    | grep "cp312-cp312-macosx" \
+    | grep "macosx_" \
     | grep "${WHEEL_ARCH}\.whl$" \
     | head -1 || true
 )"
