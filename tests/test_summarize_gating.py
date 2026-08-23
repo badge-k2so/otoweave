@@ -173,6 +173,98 @@ class SummarizeModel9BTests(unittest.TestCase):
         self.assertEqual(reason, "")
 
 
+class MacSummarizeThresholdTests(unittest.TestCase):
+    """macOS だけ要約の下限RAMを下げる（8GB Macで4Bを使えるようにする）。
+
+    Apple Silicon はユニファイドメモリで、要約はサブプロセスを起動して
+    終了時に解放するため、8GB機でも 4B Q4 を省メモリプロファイルで
+    動かせる（MAC_PORT_PLAN.md の方針）。Windows/Linux の 11.5GB は
+    据え置き — GIGA端末の実8GB機は従来どおり要約非対応のまま。
+    """
+
+    # 実8GB Mac。hw.memsize は公称どおり 8.0GB を返す。
+    _MAC_8GB = 8 * 1024**3
+
+    def _patch_macos(self, is_macos: bool):
+        return patch("otoweave_app.platform_support.IS_MACOS", is_macos)
+
+    def test_8gb_mac_can_summarize_with_4b(self) -> None:
+        root = _make_root(with_4b=True)
+        with self._patch_macos(True), _patch_ram(self._MAC_8GB):
+            available, reason = summarize_availability(root)
+            chosen = find_summarize_model(root)
+        self.assertTrue(available, "8GB Macでは要約を有効にする")
+        self.assertEqual(reason, "")
+        self.assertIsNotNone(chosen)
+        self.assertIn("4B", chosen.name)
+
+    def test_8gb_windows_machine_still_cannot_summarize(self) -> None:
+        # 同じRAM量でも Windows/Linux は従来どおり非対応（挙動不変）。
+        root = _make_root(with_4b=True)
+        with self._patch_macos(False), _patch_ram(_LOW_RAM):
+            available, reason = summarize_availability(root)
+        self.assertFalse(available)
+        self.assertEqual(reason, SUMMARIZE_UNAVAILABLE_LOW_MEMORY)
+
+    def test_8gb_mac_uses_the_low_memory_profile(self) -> None:
+        """要約を許可することと、大きいプロファイルを使うことは別。
+
+        8GB機に n_ctx=8192 を与えると物理メモリを超えるため、可否の判定を
+        通してもプロファイルは省メモリ側でなければならない。"""
+        from otoweave_app.llm_chat import summarize_llm_profile
+
+        with self._patch_macos(True), _patch_ram(self._MAC_8GB):
+            profile = summarize_llm_profile()
+        self.assertEqual(profile["n_ctx"], 4096)
+        self.assertEqual(profile["n_batch"], 128)
+
+    def test_4gb_mac_still_cannot_summarize(self) -> None:
+        # しきい値を下げても、本当に足りない機種は弾く。
+        root = _make_root(with_4b=True)
+        with self._patch_macos(True), _patch_ram(4 * 1024**3):
+            available, reason = summarize_availability(root)
+        self.assertFalse(available)
+        self.assertEqual(reason, SUMMARIZE_UNAVAILABLE_LOW_MEMORY)
+
+    def test_mac_with_failed_ram_query_is_still_unavailable(self) -> None:
+        root = _make_root(with_4b=True)
+        with self._patch_macos(True), _patch_ram(0):
+            available, reason = summarize_availability(root)
+        self.assertFalse(available)
+        self.assertEqual(reason, SUMMARIZE_UNAVAILABLE_LOW_MEMORY)
+
+    def test_download_script_threshold_matches_the_app(self) -> None:
+        """download_models_mac.sh と llm_chat.py のしきい値は一致必須。
+
+        ズレると「4Bを落としたのに要約が出ない」または
+        「要約は有効なのにモデルファイルが無い」が起きる。"""
+        import re
+
+        from otoweave_app.llm_chat import _MACOS_SUMMARIZE_MIN_RAM_BYTES
+
+        repo_root = Path(__file__).resolve().parent.parent
+        for relative, variable in (
+            ("distribution/download_models_mac.sh", "RAM_THRESHOLD"),
+            ("verify_setup_mac.sh", "MAC_4B_MIN_RAM"),
+        ):
+            with self.subTest(file=relative):
+                script = (repo_root / relative).read_text(encoding="utf-8")
+                match = re.search(
+                    rf"^{variable}=(\d+)$", script, re.MULTILINE
+                )
+                self.assertIsNotNone(match, f"{variable} が見つかりません")
+                self.assertEqual(
+                    int(match.group(1)),
+                    _MACOS_SUMMARIZE_MIN_RAM_BYTES,
+                    f"{relative} のしきい値が llm_chat.py とズレています",
+                )
+
+    def test_8gb_mac_clears_the_download_threshold(self) -> None:
+        from otoweave_app.llm_chat import _MACOS_SUMMARIZE_MIN_RAM_BYTES
+
+        self.assertGreater(self._MAC_8GB, _MACOS_SUMMARIZE_MIN_RAM_BYTES)
+
+
 class SummaryControlsVisibilityTests(unittest.TestCase):
     """可用性 → 右パネル表示状態の純ロジック。"""
 

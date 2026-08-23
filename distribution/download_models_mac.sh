@@ -90,15 +90,20 @@ note_optional_failure() {
 echo "=================================================="
 echo "AIモデルのダウンロード"
 echo "=================================================="
-echo "初回は合計 約2.7GB（メモリ12GB超の機種では約5.3GB）を取得します。"
-echo "回線によっては30分以上かかることがあります。"
+echo "初回は合計 約5.3GB（メモリ8GB未満の機種では約2.7GB）を取得します。"
+echo "回線によっては1時間以上かかることがあります。"
 echo "途中で止まった場合は、もう一度実行すれば続きから再開します。"
 echo ""
 
 # --- 搭載メモリ判定（4Bモデルを取得するか） --------------------------------
 RAM_BYTES="$(sysctl -n hw.memsize 2>/dev/null || echo 0)"
-# Windows版 setup_easy.ps1 と同じ 11.5GB 超のしきい値
-RAM_THRESHOLD=12348030976
+# 7.5GB。Windows版の 11.5GB より低い理由は otoweave_app/llm_chat.py の
+# _MACOS_SUMMARIZE_MIN_RAM_BYTES と同じ: Apple Silicon はユニファイド
+# メモリで、要約はサブプロセスで実行して終了時に解放するため、8GB機でも
+# 4B Q4（約2.6GB）を省メモリプロファイルで動かせる。
+# アプリ側の判定と必ず一致させること（ズレると「4Bを落としたのに
+# 要約が出ない」「要約は有効なのにファイルが無い」が起きる）。
+RAM_THRESHOLD=8053063680
 DOWNLOAD_4B=0
 if [ "${RAM_BYTES:-0}" -gt "$RAM_THRESHOLD" ] 2>/dev/null; then
   DOWNLOAD_4B=1
@@ -110,6 +115,9 @@ else
     info "搭載メモリを取得できませんでした — 安全のため4Bモデルは取得しません。"
   fi
   info "（AI要約は「じゅんび中」表示になります。AIチャットは2Bでどの機種でも使えます）"
+fi
+if [ "$DOWNLOAD_4B" = "1" ]; then
+  echo "   ※ 4Bモデルの分だけ、合計は約5.3GBになります。"
 fi
 echo ""
 

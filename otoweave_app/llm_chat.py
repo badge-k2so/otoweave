@@ -101,8 +101,40 @@ def _is_low_memory_machine() -> bool:
     Windows reports slightly less than the nominal RAM size (a real 8GB
     machine shows about 7.9GB), so the threshold sits between the 8GB and
     16GB machine classes. When the RAM query fails (returns 0), assume low
-    memory so the safe profile is used."""
+    memory so the safe profile is used.
+
+    This picks the *profile* (context/batch sizes), which is a separate
+    question from whether summarization runs at all -- see
+    _has_ram_for_summarize(). An 8GB Mac clears that gate but is still a
+    low-memory machine here, so it gets the小さい n_ctx/n_batch profile."""
     return _total_physical_ram_bytes() < _LOW_MEMORY_THRESHOLD_BYTES
+
+
+# macOS の hw.memsize は公称どおりの値を返す（実8GB機はちょうど8.0GB）。
+# Apple Silicon はユニファイドメモリで、要約は毎回サブプロセスを起動して
+# 終了時に解放する構造のため、8GB機でも 4B Q4（約2.6GB）を省メモリ
+# プロファイルで動かせる — MAC_PORT_PLAN.md の Apple Silicon 方針
+# （「サブプロセス実行+解放の現構造なら8GBで成立」）に合わせた判断。
+# Windows の 11.5GB は搭載RAMを少なめに報告する挙動とGIGA端末を想定した
+# 値なので、そのまま持ち込まない。
+_MACOS_SUMMARIZE_MIN_RAM_BYTES = int(7.5 * 1024**3)
+
+
+def _summarize_min_ram_bytes() -> int:
+    """Minimum RAM to allow summarization at all, by platform."""
+    from .platform_support import IS_MACOS
+
+    if IS_MACOS:
+        return _MACOS_SUMMARIZE_MIN_RAM_BYTES
+    return _LOW_MEMORY_THRESHOLD_BYTES
+
+
+def _has_ram_for_summarize() -> bool:
+    """True when this machine has enough RAM to run a summary model.
+
+    When the RAM query fails (returns 0) this is False, so the safe
+    "summarization unavailable" path is taken."""
+    return _total_physical_ram_bytes() >= _summarize_min_ram_bytes()
 
 
 _HIGH_MEMORY_THRESHOLD_BYTES = int(15 * 1024**3)
@@ -173,8 +205,9 @@ def _resolve_summarize_model(project_root: Path) -> tuple[Path | None, str]:
     """Single source of truth for summarize_availability()/find_summarize_model().
 
     Order of preference:
-      1. Low-memory machines (~11.5GB 未満) never get a summarize model,
-         regardless of which model files happen to be present.
+      1. Machines under the platform's summarize minimum (Windows/Linux
+         ~11.5GB, macOS ~7.5GB) never get a summarize model, regardless of
+         which model files happen to be present.
       2. High-memory machines (~15GB 以上) prefer the 9B model when its
          file is present.
       3. Otherwise (including high-memory machines without a 9B file) fall
@@ -184,7 +217,7 @@ def _resolve_summarize_model(project_root: Path) -> tuple[Path | None, str]:
     is usable; reason is "" when a model was chosen, otherwise one of the
     SUMMARIZE_UNAVAILABLE_* codes.
     """
-    if _is_low_memory_machine():
+    if not _has_ram_for_summarize():
         return None, SUMMARIZE_UNAVAILABLE_LOW_MEMORY
     if _is_high_memory_machine():
         model_9b = project_root / "models" / SUMMARIZE_MODEL_9B_FILENAME
@@ -211,7 +244,8 @@ def summarize_availability(project_root: Path) -> tuple[bool, str]:
         (False, reason) … 生成不可。reason は
             SUMMARIZE_UNAVAILABLE_MODEL_MISSING（この機体で使えるモデル
             ファイルが無い）または
-            SUMMARIZE_UNAVAILABLE_LOW_MEMORY（RAMが閾値 ~11.5GB 未満）。
+            SUMMARIZE_UNAVAILABLE_LOW_MEMORY（RAMが閾値未満。
+            Windows/Linux は ~11.5GB、macOS は ~7.5GB）。
 
     チャット用の2Bモデル選択（find_chat_model）には影響しない。
     """
@@ -226,11 +260,13 @@ def find_summarize_model(project_root: Path) -> Path | None:
     so summarization is enabled only when _resolve_summarize_model() finds
     a usable tier: the 9B model on machines with ~15GB+ RAM (when the 9B
     file is present), otherwise the 4B model when its file is present and
-    the machine is not low-memory (~11.5GB threshold, which excludes real
-    8GB devices reporting ~7.9GB). Returns None otherwise; the UI hides
-    summary generation in that case. The low-RAM branch of
-    summarize_llm_profile is kept only for future lightweight models and
-    is never selected through this function.
+    the machine clears the platform's summarize minimum (~11.5GB on
+    Windows/Linux, which excludes real 8GB GIGA devices reporting ~7.9GB;
+    ~7.5GB on macOS, where unified memory plus the subprocess-and-release
+    structure lets an 8GB Mac run 4B). Returns None otherwise; the UI
+    hides summary generation in that case. On an 8GB Mac the low-RAM
+    branch of summarize_llm_profile is what keeps 4B within budget
+    (n_ctx 4096 / n_batch 128).
 
     9B is a "top shelf" option pending a 4B-vs-9B quality benchmark; on a
     16GB-class machine without the 9B file present this falls straight

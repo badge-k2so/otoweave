@@ -110,12 +110,18 @@ for entry in "${MODEL_FILES[@]}"; do
   fi
 done
 
-# 4Bは任意: M3 8GB機では同梱不要（メモリ16GBクラスの端末でのみ使用）
+# 4B は macOS では 7.5GB 超の機種で取得する（llm_chat.py の
+# _MACOS_SUMMARIZE_MIN_RAM_BYTES と同じしきい値）。実8GB Mac も対象。
+MAC_4B_MIN_RAM=8053063680
+RAM_BYTES_CHECK="$(sysctl -n hw.memsize 2>/dev/null || echo 0)"
 if [ -f "$ROOT/models/Qwen3.5-4B-Q4_K_M.gguf" ]; then
-  log "[OK] ファイル AI要約 (Qwen3.5-4B) ※任意 : あり"
+  log "[OK] ファイル AI要約 (Qwen3.5-4B) : あり"
   OK_COUNT=$((OK_COUNT + 1))
+elif [ "${RAM_BYTES_CHECK:-0}" -gt "$MAC_4B_MIN_RAM" ] 2>/dev/null; then
+  log "[NG] ファイル AI要約 (Qwen3.5-4B) : なし（このMacでは要約が使えるはずです。./setup_mac.sh をもう一度実行して取得してください）"
+  NG_COUNT=$((NG_COUNT + 1))
 else
-  log "[--] ファイル AI要約 (Qwen3.5-4B) ※任意 : なし（8GB機では同梱不要のため正常です。チャットは2Bで動作します）"
+  log "[--] ファイル AI要約 (Qwen3.5-4B) ※任意 : なし（このMacはメモリが少ないため正常です。チャットは2Bで動作します）"
 fi
 
 # --- ReazonSpeech K2 (HFキャッシュ) -----------------------------------------
